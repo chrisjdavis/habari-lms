@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pluggable type="plugin">
+	<name>Forums for Habari</name>
+	<license url="http://www.apache.org/licenses/LICENSE-2.0.html">Apache Software License 2.0</license>
+	<author url="http://leagueofbeards.com/">League of Beards</author>
+	
+	<version>1.0</version>
+	<url>http://leagueofbeards.com/</url>
+	<description><![CDATA[Add forums to a Habari install.]]></description>
+	<copyright>2014</copyright>	
+</pluggable>

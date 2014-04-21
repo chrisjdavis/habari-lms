@@ -112,5 +112,18 @@ class Unit extends Post
 				
 		return $files;
 	}
+	
+	public function parse_length() {
+		$minutes = $this->length;
+		$d = floor ($minutes / 1440);
+		$h = floor (($minutes - $d * 1440) / 60);
+		$m = $minutes - ($d * 1440) - ($h * 60);
+				
+		if ($m == '0' ) {
+			$m = '00';
+		}
+		
+		return $h . ':' . $m;
+	}
 }
 ?>

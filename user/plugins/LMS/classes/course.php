@@ -82,6 +82,7 @@ class Course extends Post
 	
 	public function list_files() {
 		$dir = Site::get_path('user') . '/files/uploads/courses/' . $this->id;
+				
 		$files = array();
 
 		$iterator = new \DirectoryIterator( $dir );
@@ -91,9 +92,7 @@ class Course extends Post
 				$files[] = $fileinfo->getFilename();
 			}
 		}
-	
-		unset($files[0]);
-
+		
 		return $files;
 	}
 

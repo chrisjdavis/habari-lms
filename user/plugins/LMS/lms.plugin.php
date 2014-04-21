@@ -121,19 +121,21 @@ class LMSPlugin extends Plugin
 
 	private function create_courses_table() {
 		$sql = "CREATE TABLE " . DB::table('courses') . " (
-			  id int(11) unsigned NOT NULL AUTO_INCREMENT,
-			  post_id int(11) unsigned DEFAULT 0,
-			  course_permissions int(11) unsigned DEFAULT 0,
-			  course_category int(11) unsigned DEFAULT 0,
-			  course_group int(11) unsigned DEFAULT 0,
-			  course_type VARCHAR(255) NULL,
-			  course_badge int(11) unsigned DEFAULT 0,
-			  course_hero varchar(255) DEFAULT NULL,
-			  course_length VARCHAR(255) NULL,
-			  course_prereq int(11) unsigned DEFAULT 0,
-			  course_meeting_dates VARCHAR(255) NULL,			  
-			  PRIMARY KEY (`id`)
-			) ENGINE=InnoDB DEFAULT CHARSET=latin1;";
+		  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+		  `post_id` int(11) unsigned DEFAULT '0',
+		  `parent` int(11) unsigned DEFAULT '0',
+		  `locked` int(11) unsigned DEFAULT NULL,
+		  `course_permissions` int(11) unsigned DEFAULT '0',
+		  `course_category` int(11) unsigned DEFAULT '0',
+		  `course_group` int(11) unsigned DEFAULT '0',
+		  `course_type` varchar(255) DEFAULT NULL,
+		  `course_badge` int(11) unsigned DEFAULT '0',
+		  `course_hero` varchar(255) DEFAULT NULL,
+		  `course_length` varchar(255) DEFAULT NULL,
+		  `course_prereq` int(11) unsigned DEFAULT '0',
+		  `course_meeting_dates` varchar(255) DEFAULT NULL,
+		  PRIMARY KEY (`id`)
+		) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=latin1;";
 			
 		return DB::dbdelta( $sql );
 	}
@@ -324,6 +326,17 @@ class LMSPlugin extends Plugin
 		$course->update();
 	}
 
+	public function filter_user_get($out, $name, $user) {
+		switch($name) {
+			case 'gravatar' :
+				$image = Site::get_url('theme') . '/images/default_avatar.png';
+				$out = '<img src="https://www.gravatar.com/avatar/' . md5( strtolower( trim( $user->email ) ) ) . '?d=' . urlencode( $image ) . '" alt="personal avatar" class="gravatar">';
+			break;
+		}
+		
+		return $out;
+	}
+
 	public function filter_posts_get_paramarray($paramarray) {
 		$queried_types = Posts::extract_param($paramarray, 'content_type');
 
@@ -431,7 +444,61 @@ class LMSPlugin extends Plugin
 		$this->add_rule('"unit"/unit/"new"/id', 'display_quiz_new');
 		$this->add_rule('"unit"/unit/"edit"/id', 'display_quiz_edit');
 		
+		// authentication crap
+		$this->add_rule('"partner"/"login"', 'lms_login');
+		
 		return $rules;
+	}
+
+	public function theme_route_lms_login($theme, $params) {		
+		$name = $_POST['username'];
+		$pass = $_POST['password'];
+		
+		if ( ( null != $name ) || ( null != $pass ) ) {
+			$user = User::authenticate( $name, $pass );
+			if ( ( $user instanceOf User ) && ( $user != false ) ) {
+				// if there's an unused password reset token, unset it to make sure there's no possibility of a compromise that way
+				if ( isset( $user->info->password_reset ) ) {
+					unset( $user->info->password_reset );
+				}
+			
+				/* Successfully authenticated. */
+				// Timestamp last login date and time.
+				$user->info->authenticate_time = DateTime::create()->format( 'Y-m-d H:i:s' );
+				$user->update();
+			
+				// Remove left over expired session error message.
+				if ( Session::has_errors( 'expired_session' ) ) {
+					Session::remove_error( 'expired_session' );
+				}
+			
+				$login_session = Session::get_set( 'login' );
+				if ( ! empty( $login_session ) ) {
+					/* Now that we know we're dealing with the same user, transfer the form data so he does not lose his request */
+					if ( ! empty( $login_session['post_data'] ) ) {
+						Session::add_to_set( 'last_form_data', $last_form_data['post'], 'post' );
+					}
+					
+					if ( ! empty( $login_session['get_data'] ) ) {
+						Session::add_to_set( 'last_form_data', $last_form_data['get'], 'get' );
+					}
+			
+					// don't bother parsing out the URL, we store the URI that was requested, so just append that to the hostname and we're done
+					$login_dest = Site::get_url('host') . $login_session['original'];
+				} else {
+					$login_session = null;
+					$login_dest = Site::get_url( 'admin' );
+				}
+			
+				// filter the destination
+				$login_dest = Plugins::filter( 'login_redirect_dest', $login_dest, $user, $login_session );
+				
+				// finally, redirect to the destination
+				Utils::redirect( $login_dest );
+				
+				return true;
+			}
+		}
 	}
 
 	public function theme_route_start_course($theme, $params) {	
